@@ -21,11 +21,11 @@ jobs:
       - name: Verify Dependencies
         run: go mod verify
 
+      - name: Install golangci-lint
+        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.9.0
+
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: v2.9.0
-          args: --timeout=5m --go=1.25.0
+        run: golangci-lint run --timeout=5m
 
       - name: Run Test
         run: go test -v -race ./...
