@@ -30,17 +30,14 @@ jobs:
       - name: Run Vet
         run: go vet ./...
 
-      - name: Update Pull Request
+      - name: Commit formatting changes
+        if: github.event_name == 'pull_request'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: formatting code"
-          title: "[AUTO] Format Code"
-          body: "This PR automatically formats the code."
           branch: ${{ github.head_ref }}
-          base: ${{ github.base_ref }}
-          labels: |
-            automated pr
+          
       - name: Install golangci-lint
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.9.0
 
