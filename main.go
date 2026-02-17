@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -143,8 +144,13 @@ func main() {
 		}
 
 		gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
-
-		<-gatherComplete
+		select {
+		case <-gatherComplete:
+			log.Println("ICE gathering completed")
+		case <-time.After(10 * time.Second):
+			log.Println("ICE gathering timed out")
+			return err
+		}
 
 		peerConnections.Store(peerConnection.ID(), peerConnection)
 
