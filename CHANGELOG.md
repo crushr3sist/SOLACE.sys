@@ -21,3 +21,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Embedded index html file and the static files
 - Added htmx import tag to index.html
 - initalised the frontend serving
+
+## [0.2.1] - 2026-02-17
+
+### Added
+
+- Installed Pion for native WebRTC functionaltiy
+- Added SDP handshake from frontend and backend
+- Added creating an answer for the frontend
+- Added DataChannel listener for peerConnection
+- Added timeout for ICE gathering
+- Added Detailed state feedback for peerConnection State
+
+### Fixed
+
+- Kept peerConnection alive after the scope of the webrtc/offer endpoint lifetime
+- Waited for ICE candidates to be acquired
+- A Few spelling mistakes
+
+### Replaced
+
+- Replaced the global hashmap for peerConnections to sync.Map to avoid concurrent map writes panic
