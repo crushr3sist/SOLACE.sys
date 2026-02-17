@@ -6,13 +6,12 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/gofiber/template/html/v3"
 	"github.com/pion/webrtc/v4"
-	ffmpeg_go "github.com/u2takey/ffmpeg-go"
 )
 
 //go:embed frontend/*
@@ -20,6 +19,8 @@ var frontend_dir embed.FS
 
 //go:embed frontend/static/*
 var static_dir embed.FS
+
+var peerConnections = map[string]*webrtc.PeerConnection{}
 
 func main() {
 
@@ -31,6 +32,13 @@ func main() {
 		Views: engine,
 	})
 
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "http://127.0.0.1:3000"},           // Specify allowed origins
+		AllowMethods:     []string{"GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"}, // Specify allowed methods
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},                         // Specify allowed headers
+		AllowCredentials: true,                                                                 // Needed if you use cookies or sessions
+	}))
+
 	// embed the static files
 	static_files := fs.FS(static_dir)
 
@@ -39,6 +47,7 @@ func main() {
 
 	// serve the index.html page
 	app.Get("/", func(c fiber.Ctx) error {
+
 		return c.Render("frontend/index", fiber.Map{
 			"Title": "Hello, World!",
 		})
@@ -65,51 +74,47 @@ func main() {
 		peerConnection, err := webrtc.NewPeerConnection(config)
 
 		if err != nil {
-			return err
+			panic(err)
 		}
 
+		peerConnection.OnDataChannel(func(dc *webrtc.DataChannel) {
+			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+				fmt.Println("Received from client:", string(msg.Data))
+			})
+		})
 		// 3. set the remote SessionDescription
 		err = peerConnection.SetRemoteDescription(*sdpOffer)
 		if err != nil {
-			return err
+			panic(err)
+
 		}
-
-		// before we create our answer, we need to create a video track i think.
-		videopath := filepath.Base("G:\\Memento(2000)[1080p]\\Memento.mp4")
-		in := ffmpeg_go.Input(videopath)
-		
-		video_stream := in.Output("", ffmpeg_go.KwArgs{
-			"an":   "libx264",
-			"bsf:v": "h264_mp4toannexb",
-			"f":     "h264",
-			"pipe":  "1",
-		})
-
-		audio_stream := in.Output("", ffmpeg_go.KwArgs{
-			"c:v":   "libx264",
-			"bsf:v": "h264_mp4toannexb",
-			"f":     "h264",
-			"pipe":  "1",
-		})
 
 		// 4. create an answer
 		answer, err := peerConnection.CreateAnswer(nil)
 		if err != nil {
-			return err
+			panic(err)
+
 		}
 
 		// 5. sets the LocalDescription and starts gather ICE candidates
 		err = peerConnection.SetLocalDescription(answer)
 
 		if err != nil {
-			return err
+			panic(err)
+
 		}
+
+		gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
+
+		<-gatherComplete
+
+		peerConnections[peerConnection.ID()] = peerConnection
 
 		data := map[string]interface{}{
 			"status":  200,
-			"message": "handshake recieved, sending back answer",
-			"stats":   peerConnection.GetStats(),
-			"answer":  answer,
+			"message": "handshake received, sending back answer",
+			"peerId":  peerConnection.ID(),
+			"answer":  peerConnection.LocalDescription(),
 		}
 
 		return c.JSON(data)
