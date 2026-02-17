@@ -6,10 +6,10 @@
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
     <link rel="stylesheet" href="/frontend/static/main.css" />
     <title>Document</title>
-    <script type="module" src="/frontend/static/main.js" defer></script>
   </head>
   <body>
     <h1 class="title">{{.Title}}</h1>
-    <video src="" id="my-video"></video>
+    <button hx-post="/clicked" hx-swap="outerHTML">Click Me</button>
+    <video src=""></video>
   </body>
 </html>
