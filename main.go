@@ -6,11 +6,13 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/gofiber/template/html/v3"
 	"github.com/pion/webrtc/v4"
+	ffmpeg_go "github.com/u2takey/ffmpeg-go"
 )
 
 //go:embed frontend/*
@@ -71,6 +73,24 @@ func main() {
 		if err != nil {
 			return err
 		}
+
+		// before we create our answer, we need to create a video track i think.
+		videopath := filepath.Base("G:\\Memento(2000)[1080p]\\Memento.mp4")
+		in := ffmpeg_go.Input(videopath)
+		
+		video_stream := in.Output("", ffmpeg_go.KwArgs{
+			"an":   "libx264",
+			"bsf:v": "h264_mp4toannexb",
+			"f":     "h264",
+			"pipe":  "1",
+		})
+
+		audio_stream := in.Output("", ffmpeg_go.KwArgs{
+			"c:v":   "libx264",
+			"bsf:v": "h264_mp4toannexb",
+			"f":     "h264",
+			"pipe":  "1",
+		})
 
 		// 4. create an answer
 		answer, err := peerConnection.CreateAnswer(nil)
