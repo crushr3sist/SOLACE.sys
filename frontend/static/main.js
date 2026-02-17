@@ -5,7 +5,7 @@ const peerConnection = new RTCPeerConnection({
 // example for a data channel
 const dataChannel = peerConnection.createDataChannel("dataChannel");
 
-dataChannel.onmessage = (event) => console.log("Recieved:", event.data);
+dataChannel.onmessage = (event) => console.log("Received:", event.data);
 
 dataChannel.onopen = () => dataChannel.send("Hello from the browser");
 
@@ -30,6 +30,7 @@ peerConnection.onicecandidate = async (event) => {
       type: peerConnection.localDescription.type,
       candidates: iceCandidates,
     };
+
     console.dir(offerData);
 
     // send offerData to your go pion application via your signaling server

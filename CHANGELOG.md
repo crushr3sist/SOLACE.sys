@@ -30,10 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added SDP handshake from frontend and backend
 - Added creating an answer for the frontend
 - WebRTC connection was established.
-- Aded DataChannel listener for peerConnection
+- Added DataChannel listener for peerConnection
 
 ### Fixed
 
 - Kept peerConnection alive after the scope of the webrtc/offer endpoint lifetime
-- Waited for ICE candidates to be aquired
+- Waited for ICE candidates to be acquired
 - A Few spelling mistakes

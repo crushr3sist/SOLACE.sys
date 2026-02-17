@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -20,7 +21,7 @@ var frontend_dir embed.FS
 //go:embed frontend/static/*
 var static_dir embed.FS
 
-var peerConnections = map[string]*webrtc.PeerConnection{}
+var peerConnections sync.Map
 
 func main() {
 
@@ -61,7 +62,7 @@ func main() {
 			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		log.Printf("Received handshake: sdp=%s, type=%s\n", sdpOffer.SDP, sdpOffer.Type)
+		// log.Printf("Received handshake: sdp=%s, type=%s\n", sdpOffer.SDP, sdpOffer.Type)
 
 		// 1. prepare configuration (stun/turn)
 		config := webrtc.Configuration{
@@ -74,7 +75,8 @@ func main() {
 		peerConnection, err := webrtc.NewPeerConnection(config)
 
 		if err != nil {
-			panic(err)
+			return err
+
 		}
 
 		peerConnection.OnDataChannel(func(dc *webrtc.DataChannel) {
@@ -82,17 +84,53 @@ func main() {
 				fmt.Println("Received from client:", string(msg.Data))
 			})
 		})
+
+		peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+			log.Printf("Peer Connection State has changed: %s\n", state.String())
+			switch state {
+			case webrtc.PeerConnectionStateClosed:
+				{
+					peerConnection.GracefulClose()
+					peerConnections.Delete(peerConnection.ID())
+					log.Printf("Peer (%s) Connection State has changed: %s\n", peerConnection.ID(), state.String())
+
+				}
+			case webrtc.PeerConnectionStateConnected:
+				{
+					log.Printf("Peer (%s) Connection State has changed: %s\n", peerConnection.ID(), state.String())
+
+				}
+			case webrtc.PeerConnectionStateConnecting:
+				{
+					log.Printf("Peer (%s) Connection State has changed: %s\n", peerConnection.ID(), state.String())
+
+				}
+			case webrtc.PeerConnectionStateFailed:
+				{
+					log.Printf("Peer (%s) Connection State has changed: %s\n", peerConnection.ID(), state.String())
+
+				}
+			case webrtc.PeerConnectionStateDisconnected:
+				{
+					log.Printf("Peer (%s) Connection State has changed: %s\n", peerConnection.ID(), state.String())
+
+				}
+
+			}
+
+		})
+
 		// 3. set the remote SessionDescription
 		err = peerConnection.SetRemoteDescription(*sdpOffer)
 		if err != nil {
-			panic(err)
+			return err
 
 		}
 
 		// 4. create an answer
 		answer, err := peerConnection.CreateAnswer(nil)
 		if err != nil {
-			panic(err)
+			return err
 
 		}
 
@@ -100,7 +138,7 @@ func main() {
 		err = peerConnection.SetLocalDescription(answer)
 
 		if err != nil {
-			panic(err)
+			return err
 
 		}
 
@@ -108,7 +146,7 @@ func main() {
 
 		<-gatherComplete
 
-		peerConnections[peerConnection.ID()] = peerConnection
+		peerConnections.Store(peerConnection.ID(), peerConnection)
 
 		data := map[string]interface{}{
 			"status":  200,
