@@ -91,7 +91,10 @@ func main() {
 			switch state {
 			case webrtc.PeerConnectionStateClosed:
 				{
-					peerConnection.GracefulClose()
+					err := peerConnection.GracefulClose()
+					if err != nil {
+						log.Printf("%s error ocurred", err)
+					}
 					peerConnections.Delete(peerConnection.ID())
 					log.Printf("Peer (%s) Connection State has changed: %s\n", peerConnection.ID(), state.String())
 
