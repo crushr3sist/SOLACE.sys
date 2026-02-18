@@ -83,6 +83,8 @@ func main() {
 		peerConnection.OnDataChannel(func(dc *webrtc.DataChannel) {
 			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 				fmt.Println("Received from client:", string(msg.Data))
+				sendString := "pong:)" + string(msg.Data)
+				dc.SendText(sendString)
 			})
 		})
 

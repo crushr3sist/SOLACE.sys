@@ -1,71 +1,138 @@
-const peerConnection = new RTCPeerConnection({
-  iceServers: [{ urls: "stun:stun.1.google.com:19302" }],
-});
+class SOLACE_sys {
+  constructor() {
+    this.peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.1.google.com:19302" }],
+    });
+    this.iceCandidates = [];
+    this.onStateChangeCallback = null;
+    this.onNewMessageCallback = null;
 
-// example for a data channel
-const dataChannel = peerConnection.createDataChannel("dataChannel");
+    this.dataChannel = this.peerConnection.createDataChannel("dataChannel");
+    this.dataChannel.onopen = () =>
+      this.dataChannel.send("Hello from the browser");
 
-dataChannel.onmessage = (event) => console.log("Received:", event.data);
+    this.peerConnection.onicecandidate = async (event) => {
+      if (event.candidate) {
+        this.iceCandidates.push(event.candidate.toJSON());
+      } else {
+        // ALL candidates gathered
+        console.log("SDP offer ready for signaling:");
 
-dataChannel.onopen = () => dataChannel.send("Hello from the browser");
+        const offerData = {
+          sdp: this.peerConnection.localDescription.sdp,
+          type: this.peerConnection.localDescription.type,
+          candidates: this.iceCandidates,
+        };
 
-const offer = await peerConnection.createOffer();
+        console.dir(offerData);
 
-await peerConnection.setLocalDescription(offer);
+        // send offerData to your go pion application via your signaling server
+        let answer = await this.sendToServer(offerData);
 
-let iceCandidates = [];
+        const remoteDesc = new RTCSessionDescription(answer.answer);
 
-peerConnection.onconnectionstatechange = (event) =>
-  console.log("connection state: ", event);
-
-peerConnection.onicecandidate = async (event) => {
-  if (event.candidate) {
-    iceCandidates.push(event.candidate.toJSON());
-  } else {
-    // ALL candidates gathered
-    console.log("SDP offer ready for signaling:");
-
-    const offerData = {
-      sdp: peerConnection.localDescription.sdp,
-      type: peerConnection.localDescription.type,
-      candidates: iceCandidates,
+        await this.peerConnection.setRemoteDescription(remoteDesc);
+      }
     };
 
-    console.dir(offerData);
+    this.dataChannel.onmessage = (event) => {
+      const newMessage = event.data;
+      console.log(newMessage);
+      if (this.onNewMessageCallback) {
+        this.onNewMessageCallback(newMessage);
+      }
+    };
 
-    // send offerData to your go pion application via your signaling server
-    let answer = await sendToServer(offerData);
-
-    const remoteDesc = new RTCSessionDescription(answer.answer);
-
-    await peerConnection.setRemoteDescription(remoteDesc);
+    this.peerConnection.onconnectionstatechange = () => {
+      const newState = this.peerConnection.connectionState;
+      if (this.onStateChangeCallback) {
+        this.onStateChangeCallback(newState);
+      }
+    };
   }
-};
 
-// 1. listen for the moment go starts sending the track
-peerConnection.ontrack = (event) => {
-  // 2. hotwire the incoming stream directory to your html video tag
-  const videoElement = document.getElementById("my-video");
-  videoElement.srcObject = event.streams[0];
-};
+  async init() {
+    const offer = await this.peerConnection.createOffer();
+    await this.peerConnection.setLocalDescription(offer);
+  }
 
-const sendToServer = async (data) => {
-  try {
-    const response = await fetch("/webrtc/offer", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-      body: JSON.stringify(data),
-    });
+  onStateChange(callback) {
+    this.onStateChangeCallback = callback;
+  }
+  onMessageChange(callback) {
+    this.onNewMessageCallback = callback;
+  }
 
-    if (!response.ok) {
-      throw new Error("HTTP error! status: " + response.status);
+  get() {
+    let message = "";
+    return message;
+  }
+
+  send(message) {
+    this.dataChannel.send(message);
+  }
+
+  sendToServer = async (data) => {
+    try {
+      const response = await fetch("/webrtc/offer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("HTTP error! status: " + response.status);
+      }
+      const responseData = await response.json();
+      console.log("success: ", responseData);
+      return responseData;
+    } catch (error) {
+      console.error("Error: ", error);
     }
-    const responseData = await response.json();
-    console.log("success: ", responseData);
-    return responseData;
-  } catch (error) {
-    console.error("Error: ", error);
+  };
+}
+const connectionInstance = new SOLACE_sys();
+
+let state = document.getElementById("state");
+let sendButton = document.getElementById("send_button");
+let messageInput = document.getElementById("message");
+let messagesList = document.getElementById("messages");
+
+connectionInstance.onStateChange((newState) => {
+  console.log("State changed to: ", newState);
+
+  state.innerText = newState;
+
+  if (newState === "connected") {
+    state.style.color = "green";
+  } else if (newState === "failed" || newState === "disconnected") {
+    state.style.color = "red";
+  } else {
+    state.style.color = "orange"; // connecting, new, etc.
   }
-};
+});
+
+connectionInstance.onMessageChange((newMessage) => {
+  // Create the new list item
+  let newListElem = document.createElement("li");
+  newListElem.textContent = newMessage;
+
+  // Append it to the list (preserves previous items)
+  messagesList.appendChild(newListElem);
+});
+
+sendButton.addEventListener("click", () => {
+  console.log(messageInput.value);
+  connectionInstance.send(messageInput.value);
+});
+
+connectionInstance.init();
+
+// // 1. listen for the moment go starts sending the track
+// peerConnection.ontrack = (event) => {
+//   // 2. hotwire the incoming stream directory to your html video tag
+//   const videoElement = document.getElementById("my-video");
+//   videoElement.srcObject = event.streams[0];
+// };
