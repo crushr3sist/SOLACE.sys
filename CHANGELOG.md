@@ -42,3 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Replaced
 
 - Replaced the global hashmap for peerConnections to sync.Map to avoid concurrent map writes panic
+-
+
+## [0.3.0] - 2026-02-17
+
+### Added
+
+- Improved the code quality on the frontend
+- Encapsulated the free code for handshake and event listeners
+- data incoming and outgoing event listeners established
